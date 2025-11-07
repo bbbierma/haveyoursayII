@@ -1,0 +1,39 @@
+name: HYS (dependency) → Notion
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"   # elke 2 uur (UTC)
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install base deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Get haveyoursay + deps
+        run: |
+          git clone https://github.com/ghxm/haveyoursay.git
+          pip install -r haveyoursay/requirements.txt
+
+      - name: Collect HYS → SQLite
+        run: |
+          python haveyoursay/haveyoursay.py collect --db hys.db --update --wait 1
+
+      - name: Push SQLite → Notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DB_ID: ${{ secrets.NOTION_DB_ID }}
+        run: |
+          python notion_ingest_from_hys.py
